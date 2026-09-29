@@ -1,0 +1,122 @@
+{
+  "milvus_version": "2.6.18",
+  "database": "sm_db",
+  "collectionName": "sm_sport_baseball",
+  "description": "장면 증거 — 해설(stt)·화면 캡션(shot)·하단 자막(etc) 통합 색인",
+  "enableDynamicField": false,
+  "consistencyLevel": "Bounded",
+  "shardsNum": 1,
+  "fields": [
+    {
+      "name": "id",
+      "type": "Int64",
+      "primaryKey": true,
+      "autoId": true,
+      "description": "자동 발급 PK (의미 없음)"
+    },
+    {
+      "name": "v_id",
+      "type": "Int64",
+      "description": "t_video.v_id — 검색은 항상 이 값으로 범위를 좁힌다"
+    },
+    {
+      "name": "stream_id",
+      "type": "VarChar",
+      "max_length": 20,
+      "description": "t_video_file.stream_id — 분석·적재 단위인 스트림 청크. start_sec·end_sec 가 이 청크 기준 초라, 검색은 v_id 와 함께 이 값으로도 좁힌다 (VOD 는 'vod')"
+    },
+    {
+      "name": "kind",
+      "type": "VarChar",
+      "max_length": 8,
+      "description": "증거 종류: stt=해설 대사 / shot=화면 캡션 / etc=하단 자막 OCR"
+    },
+    {
+      "name": "start_sec",
+      "type": "Float",
+      "description": "증거 시작 초 — **청크 영상 기준**(stream_id 와 짝). 클립을 그 파일에서 자르는 좌표다"
+    },
+    {
+      "name": "end_sec",
+      "type": "Float",
+      "description": "증거 끝 초 (청크 영상 기준)"
+    },
+    {
+      "name": "scene_stream_seq",
+      "type": "Int64",
+      "description": "귀속 구간 t_scene_baseball.scene_stream_seq (청크 안 일련번호) — 겹침 최대 구간. (v_id, stream_id, 이 값)이 원장 PK 라 검색 히트는 이것으로 구간에 매칭된다. 없으면 -1(orphan)"
+    },
+    {
+      "name": "scene_seq",
+      "type": "Int64",
+      "description": "같은 구간의 전체 영상 통산 일련번호 — 청크를 몰라도 v_id 하나로 좁힐 때 쓴다. 앞 청크 재처리로 낡을 수 있어 정본 매칭은 scene_stream_seq 로 한다. 없으면 -1(orphan)"
+    },
+    {
+      "name": "shot_type",
+      "type": "VarChar",
+      "max_length": 16,
+      "description": "kind=shot 일 때 장면 유형(PITCHING·FIELDING 등). 그 외 kind 는 빈 문자열"
+    },
+    {
+      "name": "labels",
+      "type": "VarChar",
+      "max_length": 512,
+      "description": "귀속 구간의 판정 결과(LLM) — 규정 용어 콤마 연결 (t_scene_baseball.labels 사본). orphan 은 빈 문자열"
+    },
+    {
+      "name": "board_tags",
+      "type": "VarChar",
+      "max_length": 256,
+      "description": "귀속 구간의 전광판 사건 태그(아웃·1점·홈런·역전 등) — t_scene_baseball.tags 사본"
+    },
+    {
+      "name": "inning",
+      "type": "VarChar",
+      "max_length": 16,
+      "description": "귀속 구간의 이닝 '{N}회{초|말}' (상류 표기 그대로)"
+    },
+    {
+      "name": "home_team",
+      "type": "VarChar",
+      "max_length": 32,
+      "description": "귀속 구간의 홈 팀 (이닝 말 공격). orphan 은 빈 문자열"
+    },
+    {
+      "name": "away_team",
+      "type": "VarChar",
+      "max_length": 32,
+      "description": "귀속 구간의 원정 팀 (이닝 초 공격). 득점 주체는 질의 시점에 inning 초/말과 조합해 판별한다"
+    },
+    {
+      "name": "score",
+      "type": "VarChar",
+      "max_length": 16,
+      "description": "귀속 구간 종료 시점 스코어 '원정:홈' (예: '2:3'). orphan 은 빈 문자열"
+    },
+    {
+      "name": "score_delta",
+      "type": "Int16",
+      "description": "귀속 구간에서 난 득점 수 (0이면 무득점)"
+    },
+    {
+      "name": "text",
+      "type": "VarChar",
+      "max_length": 1024,
+      "description": "증거 원문 — 이 필드만 임베딩된다. 1024바이트에서 절단"
+    },
+    {
+      "name": "vector",
+      "type": "FloatVector",
+      "dim": 2560,
+      "description": "text 의 임베딩 (Qwen3-Embedding-4B, COSINE)"
+    }
+  ],
+  "indexes": [
+    {
+      "fieldName": "vector",
+      "indexName": "vector",
+      "indexType": "AUTOINDEX",
+      "metricType": "COSINE"
+    }
+  ]
+}

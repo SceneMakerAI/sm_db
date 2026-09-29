@@ -1,0 +1,50 @@
+# SceneMaker 저장소 기본 환경 — 빈 테이블·빈 컬렉션까지.
+# 버전은 운영(sm-db-01, 2026-09-29)과 맞췄다.
+name: sm_db
+
+services:
+  mariadb:
+    image: mariadb:12.3
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?.env 에 MARIADB_ROOT_PASSWORD 를 넣으세요}
+      MARIADB_DATABASE: sm_db
+    volumes:
+      - mariadb:/var/lib/mysql
+      - ./mariadb:/sm_db:ro
+      - ./mariadb/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    ports:
+      - "${MARIADB_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  milvus:
+    image: milvusdb/milvus:v2.6.18
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    # 운영은 etcd·MinIO 를 따로 띄우지만, MinIO 공개 이미지가 배포 중단(2026-09 pull 거부)이라
+    # Milvus 공식 standalone_embed 방식(내장 etcd + 로컬 저장소)으로 한 컨테이너에 담는다.
+    environment:
+      ETCD_USE_EMBED: "true"
+      ETCD_DATA_DIR: /var/lib/milvus/etcd
+      COMMON_STORAGETYPE: local
+      DEPLOY_MODE: STANDALONE
+      MQ_TYPE: woodpecker
+      WOODPECKER_STORAGE_TYPE: local
+    volumes:
+      - milvus:/var/lib/milvus
+    ports:
+      - "${MILVUS_PORT:-19530}:19530"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  mariadb:
+  milvus:
